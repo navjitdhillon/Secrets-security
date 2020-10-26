@@ -1,12 +1,18 @@
 //jshint esversion:6
-require("dotenv").config();
+// only when using common encryption, or other environment variables
+// require("dotenv").config();
 const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const mongoose = require("mongoose");
-// updated to using md5 hash instead of encryption
+//when using common encryption instead of md5 or bcrypt hash
 // const encrypt = require("mongoose-encryption");
-const md5 = require("md5");
+
+// when using md5 instead of a beter bcrypt alternative
+// const md5 = require("md5");
+
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 
 const app = express();
 
@@ -41,13 +47,17 @@ app.route("/login")
           console.log("user not found");
           res.redirect("/");
         } else {
-          const enteredPassword = md5(req.body.password);
-          if(enteredPassword===result.password){
-            res.render("secrets");
-          } else {
-            console.log("password incorrect");
-            res.redirect("/");
-          }
+          bcrypt.compare(req.body.password, result.password, function(err, result) {
+            if(!err){
+              if(result==true){
+                res.render("secrets");
+                console.log("Its a match!");
+              } else {
+                console.log("Password incorrect");
+                res.redirect("/");
+              }
+            }
+          });
         }
       }
     });
@@ -58,15 +68,17 @@ app.route("/register")
     res.render("register");
   })
   .post(function(req, res){
-    const newUser = new User({
-      username:req.body.username,
-      password: md5(req.body.password)
-    });
-    newUser.save(function(err, result){
-      if(!err){
-        console.log(result);
-        res.render("secrets");
-      }
+    bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+      const newUser = new User({
+        username:req.body.username,
+        password:hash
+      });
+      newUser.save(function(err, result){
+        if(!err){
+          console.log(result);
+          res.render("secrets");
+        }
+      });
     });
   });
 
