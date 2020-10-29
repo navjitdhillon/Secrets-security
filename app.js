@@ -33,11 +33,12 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // set up or connect to the DB, create the schema as usual =>
-mongoose.connect("mongodb://localhost:27017/userDB", {useNewUrlParser: true, useUnifiedTopology: true});
+mongoose.connect("mongodb://localhost:27017/userDB", {useNewUrlParser: true, useUnifiedTopology: true, useFindAndModify: false});
 const userSchema = new mongoose.Schema({
   username: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 // add passportLocalMongoose plugin for userSchema to use passport to hash, salt and save credentials to mongoDB
@@ -86,7 +87,13 @@ app.get("/", function(req, res){
 
 app.get("/secrets", function(req, res){
   if(req.isAuthenticated()){
-    res.render("secrets");
+    User.find({secret: {$ne: null}}, function(err, usersWithSecrets){
+      if(!err){
+        res.render("secrets", {usersWithSecrets: usersWithSecrets});
+      }else{
+        console.log(err);
+      }
+    });
   }else{
     res.redirect("/login");
   }
@@ -124,6 +131,28 @@ app.route("/login")
       }
     });
   });
+
+app.route("/submit")
+.get(function (req, res){
+  if(req.isAuthenticated() ){
+    res.render("submit");
+  }else{
+    res.redirect("/login");
+  }
+})
+.post(function(req, res){
+  if(req.isAuthenticated() ){
+    User.findOneAndUpdate({username: req.user.username}, {secret: req.body.secret},{new: true}, function(err, docs){
+      if(!err){
+        console.log(docs.username);
+        console.log(docs.secret);
+        res.redirect("/secrets");
+      }
+    });
+  }else{
+    res.redirect("/login");
+  }
+});
 
 app.route("/register")
   .get(function(req, res){
